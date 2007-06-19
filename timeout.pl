@@ -2,7 +2,7 @@
 
 ## timeout
 ##
-## (c) 2004 Piotr Roszatycki <dexter@debian.org>, GPL
+## (c) 2004-2007 Piotr Roszatycki <dexter@debian.org>, GPL
 ##
 ## $Id$
 
@@ -20,12 +20,20 @@ I<time>
 I<command>
 ...
 
+=head1 README
+
+B<timeout> executes a command and imposes an elapsed time limit.  When the
+time limit is reached, B<timeout> sends a predefined signal to the target
+process.
+
 =cut
+
 
 use 5.006;
 use strict;
 
-use POSIX qw(setsid);
+use Config;
+use POSIX ();
 
 
 ##############################################################################
@@ -34,17 +42,17 @@ use POSIX qw(setsid);
 ##
 
 ## Program name
-my $NAME = "timeout";
+my $NAME = 'timeout';
 
 ## Program version
-my $VERSION = 0.1;
+my $VERSION = '0.11';
 
 
 ##############################################################################
 
 ## Signals to handle
 ##
-my @signals = qw( HUP INT QUIT TERM SEGV PIPE XCPU XFSZ ALRM );
+my @signals = qw< HUP INT QUIT TERM SEGV PIPE XCPU XFSZ ALRM >;
 
 
 ##############################################################################
@@ -72,7 +80,10 @@ my $pid;
 ## Prints usage message.
 ##
 sub usage() {
+    # Lazy loading for Pod::Usage
     eval 'use Pod::Usage;';
+    die $@ if $@;
+
     pod2usage(2);
 }
 
@@ -82,14 +93,17 @@ sub usage() {
 ## Prints help message.
 ##
 sub help() {
+    # Lazy loading for Pod::Usage
     eval 'use Pod::Usage;';
+    die $@ if $@;
+
     pod2usage(-verbose=>1, -message=>"$NAME $VERSION\n");
 }
 
 
 ## signal_handler($sig)
 ##
-## Handler for signals which cleans up temporary directory
+## Handler for signals to clean up child processes
 ##
 sub signal_handler($) {
     my ($sig) = @_;
@@ -117,15 +131,10 @@ if ($arg =~ /^-(.*)$/) {
         help();
     } elsif ($opt =~ /^[A-Z0-9]+$/) {
         if ($opt =~ /^\d+/) {
-            use Config;
+	    # Convert numeric signal to name by using the perl interpreter's
+	    # configuration:
             usage() unless defined $Config{sig_name};
-            my @signame = ();
-            my $i = 0;
-            foreach my $name (split(' ', $Config{sig_name})) {
-                $signame[$i] = $name;
-                $i++;
-            }
-            $signal = $signame[$opt];
+            $signal = (split(' ', $Config{sig_name}))[$opt];
         } else {
             $opt =~ s/^SIG//;
             $signal = $opt;
@@ -157,7 +166,7 @@ if (! defined($child_pid = fork)) {
     ## child
 
     ## Set new process group
-    setsid;
+    POSIX::setsid;
     
     ## Execute command
     exec @command or die "Can not run command `" . join(' ', @command) . "': $!\n";
@@ -179,8 +188,6 @@ while (($pid = wait) != -1 && $pid != $child_pid) {}
 ## Clean exit
 exit ($pid == $child_pid ? $? >> 8 : -1);
 
-
-__END__
 
 =head1 DESCRIPTION
 
@@ -225,9 +232,41 @@ The timeout was occured.
 
 =back
 
-=head1 AUTHOR
+=head1 PREREQUISITES
 
-(c) 2004 Piotr Roszatycki E<lt>dexter@debian.orgE<gt>
+=over
+
+=item *
+
+L<perl> >= 5.006
+
+=item *
+
+L<POSIX>
+
+=back
+
+=head1 COREQUISITES
+
+=over
+
+=item
+
+L<Pod::Usage>
+
+=back
+
+=head1 SCRIPT CATEGORIES
+
+UNIX/System_administration
+
+=head1 AUTHORS
+
+Piotr Roszatycki E<lt>dexter@debian.orgE<gt>
+
+=head1 LICENSE
+
+Copyright 2004-2007 by Piotr Roszatycki E<lt>dexter@debian.orgE<gt>.
 
 Inspired by timeout.c that is part of The Coroner's Toolkit.
 

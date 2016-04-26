@@ -31,6 +31,7 @@ process.
 
 use 5.006;
 use strict;
+use warnings;
 
 use Config;
 use POSIX ();
@@ -125,6 +126,7 @@ sub signal_handler($) {
 
 ## Parse command line arguments
 my $arg = $ARGV[0];
+usage() unless $arg;
 if ($arg =~ /^-(.*)$/) {
     my $opt = $1;
     if ($arg eq '-h' || $arg eq '--help') {

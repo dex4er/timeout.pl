@@ -36,67 +36,55 @@ use POSIX ();
 
 
 our $NAME = 'timeout';
-
 our $VERSION = '0.12';
 
 
-# Signals to handle
-my @signals = qw{HUP INT QUIT TERM SEGV PIPE XCPU XFSZ ALRM};
-
-# Signal to send after timeout. Default is KILL.
-my $signal = 'KILL';
-
-# Time to wait
-my $time = 0;
-
-# Command to execute as array of arguments
-my @command = ();
-
-# PID for fork function
-my $child_pid;
-
-# PID for wait function
-my $pid;
-
-
 # Prints usage message.
-sub usage () {
-    # Lazy loading for Pod::Usage
-    eval 'use Pod::Usage;';
-    die $@ if $@;
-    pod2usage(2);
+sub usage {
+    require Pod::Usage;
+    Pod::Usage::pod2usage(2);
 }
 
 
 # Prints help message.
-sub help () {
-    # Lazy loading for Pod::Usage
-    eval 'use Pod::Usage;';
-    die $@ if $@;
-    pod2usage(-verbose=>1, -message=>"$NAME $VERSION\n");
+sub help {
+    require Pod::Usage;
+    Pod::Usage::pod2usage(-verbose=>1, -message=>"$NAME $VERSION\n");
 }
 
 
 # Handler for signals to clean up child processes
-sub signal_handler ($) {
-    my ($sig) = @_;
-    if ($sig eq 'ALRM') {
-        printf STDERR "Timeout: aborting command ``%s'' with signal SIG%s\n", join(' ', @command), $signal;
+sub signal_handler {
+    my ($child_pid, $kill_signal, $signal) = @_;
+
+    if ($signal eq 'ALRM') {
+        print STDERR "Timeout: aborting command ``@ARGV'' with signal SIG$kill_signal\n";
     } else {
-        printf STDERR "Got signal SIG%s: aborting command ``%s'' with signal SIG%s\n", $sig, join(' ', @command), $signal;
+        print STDERR "Got signal SIG$signal: aborting command ``@ARGV'' with signal SIG$signal\n";
     }
-    kill $signal, -$child_pid;
+
+    kill $kill_signal, -$child_pid;
+
     exit -1;
 }
 
 
 # Main subroutine
-sub main () {
+sub main {
+    # Signals to handle
+    my @signals = qw{HUP INT QUIT TERM SEGV PIPE XCPU XFSZ ALRM};
+
+    # Default signal to stop child process
+    my $kill_signal = 'KILL';
+
+    # Default time to wait
+    my $time = 0;
+
     # Parse command line arguments without Getopt::Long
     my $arg = $ARGV[0];
     usage() unless $arg;
-    if ($arg =~ /^-(.*)$/) {
-        my $opt = $1;
+
+    if (my ($opt) = $arg =~ /^-(.*)$/) {
         if ($arg eq '-h' || $arg eq '--help') {
             help();
         } elsif ($opt =~ /^[A-Z0-9]+$/) {
@@ -104,10 +92,10 @@ sub main () {
     	    # Convert numeric signal to name by using the perl interpreter's
     	    # configuration:
                 usage() unless defined $Config{sig_name};
-                $signal = (split(' ', $Config{sig_name}))[$opt];
+                $kill_signal = (split(' ', $Config{sig_name}))[$opt];
             } else {
                 $opt =~ s/^SIG//;
-                $signal = $opt;
+                $kill_signal = $opt;
             }
     	shift @ARGV;
         } else {
@@ -118,20 +106,14 @@ sub main () {
     usage() if @ARGV < 2;
 
     $arg = $ARGV[0];
-
     usage() unless $arg =~ /^\d+$/;
 
     $time = $arg;
-
     shift @ARGV;
 
-    @command = @ARGV;
-
-
     # Fork for exec
-    if (not defined($child_pid = fork)) {
+    if (not defined(my $child_pid = fork)) {
         die "Could not fork: $!\n";
-        exit 1;
     } elsif ($child_pid == 0) {
         # child
 
@@ -139,24 +121,28 @@ sub main () {
         POSIX::setsid;
 
         # Execute command
-        exec @command or die "Can not run command `" . join(' ', @command) . "': $!\n";
+        exec @ARGV or die "Can not run command @ARGV: $!\n";
+
+        # Should not be occured
+        die "Could not exec: $!\n";
+    } else {
+        # parent
+
+        # Set the handle for signals
+        foreach my $signal (@signals) {
+            $SIG{$signal} = sub { signal_handler($child_pid, $kill_signal, @_) };
+        }
+
+        # Set the alarm
+        alarm $time;
+
+        # Wait for child
+        my $pid;
+        while (($pid = wait) != -1 && $pid != $child_pid) {}
+
+        # Clean exit
+        exit ($pid == $child_pid ? $? >> 8 : -1);
     }
-
-    # parent
-
-    # Set the handle for signals
-    foreach my $sig (@signals) {
-        $SIG{$sig} = \&signal_handler;
-    }
-
-    # Set the alarm
-    alarm $time;
-
-    # Wait for child
-    while (($pid = wait) != -1 && $pid != $child_pid) {}
-
-    # Clean exit
-    exit ($pid == $child_pid ? $? >> 8 : -1);
 }
 
 
@@ -210,7 +196,7 @@ The timeout was occured.
 
 =head1 PREREQUISITES
 
-=over
+=over 2
 
 =item *
 
@@ -224,9 +210,9 @@ L<POSIX>
 
 =head1 COREQUISITES
 
-=over
+=over 2
 
-=item
+=item *
 
 L<Pod::Usage>
 

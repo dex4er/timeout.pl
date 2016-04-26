@@ -2,7 +2,7 @@
 
 ## timeout
 ##
-## (c) 2004-2007 Piotr Roszatycki <dexter@debian.org>, GPL
+## (c) 2004-2007, 2016 Piotr Roszatycki <dexter@debian.org>, GPL
 ##
 ## $Id$
 
@@ -46,7 +46,7 @@ use POSIX ();
 my $NAME = 'timeout';
 
 ## Program version
-my $VERSION = '0.11';
+my $VERSION = '0.12';
 
 
 ##############################################################################
@@ -169,7 +169,7 @@ if (! defined($child_pid = fork)) {
 
     ## Set new process group
     POSIX::setsid;
-    
+
     ## Execute command
     exec @command or die "Can not run command `" . join(' ', @command) . "': $!\n";
 }
@@ -268,7 +268,7 @@ Piotr Roszatycki E<lt>dexter@debian.orgE<gt>
 
 =head1 LICENSE
 
-Copyright 2004-2007 by Piotr Roszatycki E<lt>dexter@debian.orgE<gt>.
+Copyright 2004-2007, 2016 by Piotr Roszatycki E<lt>dexter@debian.orgE<gt>.
 
 Inspired by timeout.c that is part of The Coroner's Toolkit.
 

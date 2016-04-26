@@ -97,7 +97,7 @@ sub main {
                 $opt =~ s/^SIG//;
                 $kill_signal = $opt;
             }
-    	shift @ARGV;
+    	    shift @ARGV;
         } else {
             usage();
         }
